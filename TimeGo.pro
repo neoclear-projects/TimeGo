@@ -27,11 +27,13 @@ CONFIG += c++11
 SOURCES += \
         dialogbox.cpp \
         main.cpp \
-        gameframe.cpp
+        gameframe.cpp \
+        selectionbutton.cpp
 
 HEADERS += \
         dialogbox.h \
-        gameframe.h
+        gameframe.h \
+        selectionbutton.h
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

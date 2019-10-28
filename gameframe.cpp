@@ -81,8 +81,8 @@ void GameFrame::run() {
                 QFont font;
                 font.setPointSize(commands[2].toInt());
                 this->dialogBox->setFont(font);
-            }
-
+            } else if (commands[1] == "select")
+                tgs_select(commands);
         } else
             tgs_print(line);
         this->cur_line++;
@@ -134,5 +134,38 @@ void GameFrame::tgs_wait() {
 }
 
 void GameFrame::text_forward() {
+    this->dialogForward = true;
+}
+
+void GameFrame::tgs_select(QStringList& params) {
+    for (int i = 2; i < params.size(); i += 3) {
+        QString label_name = params[i];
+        QString pos = params[i + 1];
+        QString tag = params[i + 2];
+        SelectionButton *but = new SelectionButton(tag, this);
+        this->selection_button[label_name] = but;
+        but->setGeometry(pos.split(",")[0].toInt(),
+                         pos.split(",")[1].toInt(),
+                         pos.split(",")[2].toInt(),
+                         pos.split(",")[3].toInt());
+        but->setText(label_name);
+        but->show();
+        connect(but, &SelectionButton::pressed,
+                this, &GameFrame::selection_jump);
+    }
+    while (!this->dialogForward) {
+        QCoreApplication::processEvents();
+    }
+    this->dialogForward = false;
+}
+
+void GameFrame::selection_jump(QString _tag) {
+    jump_to_tag(this->cur_file, _tag);
+    for (const auto& it : this->selection_button) {
+        disconnect(it, &SelectionButton::pressed,
+                   this, &GameFrame::selection_jump);
+        delete it;
+    }
+    selection_button.clear();
     this->dialogForward = true;
 }
