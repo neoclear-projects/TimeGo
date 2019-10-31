@@ -6,9 +6,12 @@
 #include <QPalette>
 #include <QCoreApplication>
 #include <QTextCodec>
+#include <QTime>
 
-GameFrame::GameFrame(QWidget *parent)
-    : QMainWindow(parent){
+GameFrame::GameFrame(QWidget *parent) : QMainWindow(parent),
+    bgm_player(new QMediaPlayer(this)) {
+    connect(this->bgm_player, &QMediaPlayer::mediaStatusChanged,
+            this, &GameFrame::bgm_event);
 }
 
 GameFrame::~GameFrame() {
@@ -22,6 +25,16 @@ void GameFrame::jump_to_tag(QString file, QString tag) {
     this->cur_line = this->tags[file][tag];
 }
 
+void GameFrame::bgm_event(QMediaPlayer::MediaStatus status) {
+    if (status == QMediaPlayer::EndOfMedia) {
+        if (this->bgm_loop) {
+            this->bgm_player->setPosition(0);
+            this->bgm_player->play();
+        } else
+            this->bgm_playing = false;
+    }
+}
+
 void GameFrame::load_file(QString file) {
     QFile f(file);
     if (f.open(QFile::ReadOnly)) {
@@ -29,7 +42,6 @@ void GameFrame::load_file(QString file) {
         buf.setCodec(QTextCodec::codecForName("UTF-8"));
 
         QString content = buf.readAll();
-        qDebug() << content << endl;
         if (content.isEmpty())
             return;
         if (content.contains("\r\n"))
@@ -83,6 +95,14 @@ void GameFrame::run() {
                 this->dialogBox->setFont(font);
             } else if (commands[1] == "select")
                 tgs_select(commands);
+            else if (commands[1] == "tachie")
+                tgs_tachie(commands);
+            else if (commands[1] == "bgm")
+                tgs_bgm(commands);
+            else if (commands[1] == "pause")
+                tgs_pause(commands[2].toInt());
+            else if (commands[1] == "wait_bgm")
+                tgs_wait_bgm();
         } else
             tgs_print(line);
         this->cur_line++;
@@ -100,6 +120,7 @@ void GameFrame::tgs_use(QStringList& params) {
         this->dialogBox->setGeometry(QRect(x, y, w, h));
         this->dialogBox->setAlignment(Qt::AlignLeft);
 //        this->DialogBox->setStyleSheet("background-color: rgb(0, 255, 0)");
+        this->dialogBox->raise();
         this->dialogBox->show();
     }
 }
@@ -108,7 +129,7 @@ void GameFrame::tgs_background(QStringList& params) {
     QString image = params[2];
     QPalette palette = this->palette();
     palette.setBrush(QPalette::Window,
-                     QBrush(QPixmap(image)));
+                     QBrush(QPixmap(image).scaled(this->size())));
     this->setPalette(palette);
 //    this->repaint();
 }
@@ -168,4 +189,54 @@ void GameFrame::selection_jump(QString _tag) {
     }
     selection_button.clear();
     this->dialogForward = true;
+}
+
+void GameFrame::tgs_tachie(QStringList& params) {
+    QString& tachie_name = params[3];
+    if (params[2] == "create") {
+        QString& path = params[4];
+        QString& pos = params[5];
+        this->tachie[tachie_name] = new QLabel(this);
+        this->tachie[tachie_name]->setGeometry(pos.split(",")[0].toInt(),
+                                               pos.split(",")[1].toInt(),
+                                               pos.split(",")[2].toInt(),
+                                               pos.split(",")[3].toInt());
+        this->tachie[tachie_name]->setPixmap(QPixmap(path)
+                                             .scaled(this->tachie[tachie_name]->size()));
+        this->tachie[tachie_name]->hide();
+    } else if (params[2] == "show") {
+        this->tachie[tachie_name]->show();
+    } else if (params[2] == "hide")
+        this->tachie[tachie_name]->hide();
+    else if (params[2] == "delete") {
+        this->tachie[tachie_name]->hide();
+        delete this->tachie[tachie_name];
+        this->tachie.remove(tachie_name);
+    }
+}
+
+void GameFrame::tgs_bgm(QStringList& params) {
+    QString& action = params[2];
+    if (action == "play") {
+        QString& path = params[3];
+        this->bgm_loop = params[4] == "true";
+        this->bgm_player->setMedia(QUrl::fromLocalFile(path));
+        this->bgm_playing = true;
+        this->bgm_player->play();
+    } else if (action == "stop") {
+        this->bgm_player->stop();
+        this->bgm_playing = false;
+    }
+}
+
+void GameFrame::tgs_pause(int millseconds) {
+    QTime t;
+    t.start();
+    while (t.elapsed() < millseconds)
+        QCoreApplication::processEvents();
+}
+
+void GameFrame::tgs_wait_bgm() {
+    while (this->bgm_playing)
+        QCoreApplication::processEvents();
 }

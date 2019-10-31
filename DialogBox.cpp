@@ -32,6 +32,7 @@ void DialogBox::new_line() {
 
 void DialogBox::reset() {
     this->meta = this->indent;
+    this->show();
 }
 
 bool DialogBox::event(QEvent *e) {
